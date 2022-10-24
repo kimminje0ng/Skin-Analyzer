@@ -35,10 +35,11 @@ def cross_entropy(input, target, size_average=True,class_weight=None):
 
     logsoftmax = torch.nn.LogSoftmax(dim=1)
     if size_average:
+        #return torch.mean(torch.sum(-target * logsoftmax(input), dim=1))
         return torch.mean(torch.sum(-(target*class_weight) * logsoftmax(input), dim=1)/torch.sum(target*class_weight,dim=1))
     else:
+        #return torch.sum(torch.sum(-target * logsoftmax(input), dim=1))
         return torch.sum(torch.sum(-(target*class_weight) * logsoftmax(input), dim=1)/torch.sum(target*class_weight,dim=1))
-
 
 def onehot(size, target):
     vec = torch.zeros(size, dtype=torch.float32)

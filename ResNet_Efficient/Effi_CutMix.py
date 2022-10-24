@@ -11,7 +11,7 @@ from torchvision import transforms
 from efficientnet_pytorch import EfficientNet
 from sklearn.model_selection import StratifiedKFold
 from cutmix.cutmix import CutMix
-from cutmix.utils_ import CutMixCrossEntropyLoss
+from cutmix.utils import CutMixCrossEntropyLoss
 
 import warnings
 
@@ -173,7 +173,7 @@ if __name__ == '__main__':
             tqdm_dataset = tqdm(enumerate(train_dataloader))
             training = True
             for batch, batch_item in tqdm_dataset:
-                batch_loss = train_step(model,batch_item, epoch, batch, training,class_weight=class_weight)
+                batch_loss = train_step(model, batch_item, epoch, batch, training, class_weight=class_weight)
                 total_loss += batch_loss
 
                 tqdm_dataset.set_postfix({
