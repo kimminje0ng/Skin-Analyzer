@@ -19,7 +19,8 @@ from PIL import Image
 from efficientnet_pytorch import EfficientNet
 
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-hyper_param_batch = 6
+hyper_param_batch = 1   # Error: CUDA out of memory 
+# hyper_param_batch = 6
 
 random_seed = 100
 random.seed(random_seed)
@@ -42,22 +43,25 @@ print(image_size)
 model = EfficientNet.from_pretrained(model_name, num_classes=num_classes)
 model = model.to(device)
 
+def lambda_func(x):
+    return x.rotate(90)
+
 transforms_train = transforms.Compose([
-                                        transforms.Resize([int(600), int(600)], interpolation=4),
+                                        transforms.Resize([int(600), int(600)], interpolation=Image.BICUBIC),    # 수정
                                         transforms.RandomHorizontalFlip(p=0.5),
                                         transforms.RandomVerticalFlip(p=0.5),
-                                        transforms.Lambda(lambda x: x.rotate(90)),
+                                        transforms.Lambda(lambda_func),    # 수정
                                         transforms.RandomRotation(10),
                                         transforms.RandomAffine(0, shear=10, scale=(0.8, 1.2)),
                                         transforms.ToTensor(),
                                         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-                                      ])
+                                    ])
 
 transforms_val = transforms.Compose([
                                         transforms.Resize([int(600), int(600)], interpolation=4),
                                         transforms.ToTensor(),
                                         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-                                      ])
+                                    ])
 
 
 train_data_set = datasets.ImageFolder(data_train_path, transform=transforms_train)
@@ -68,11 +72,11 @@ dataloaders, batch_num = {}, {}
 dataloaders['train'] = DataLoader(train_data_set,
                                     batch_size=hyper_param_batch,
                                     shuffle=True,
-                                    num_workers=4)
+                                    num_workers=2)  # 수정
 dataloaders['val'] = DataLoader(val_data_set,
                                     batch_size=hyper_param_batch,
                                     shuffle=False,
-                                    num_workers=4)
+                                    num_workers=2)  # 수정
 
 batch_num['train'], batch_num['val'] = len(train_data_set), len(val_data_set)
 
@@ -169,13 +173,12 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
     
     return model, best_idx, best_acc, train_loss, train_acc, val_loss, val_acc
 
+if __name__ == "__main__":
+    criterion = nn.CrossEntropyLoss()
 
-criterion = nn.CrossEntropyLoss()
+    optimizer_ft = optim.Adam(model.parameters(),lr = 1e-4)
+    exp_lr_scheduler = optim.lr_scheduler.StepLR(optimizer_ft, step_size=7, gamma=0.1)
 
-optimizer_ft = optim.Adam(model.parameters(),lr = 1e-4)
-exp_lr_scheduler = optim.lr_scheduler.StepLR(optimizer_ft, step_size=7, gamma=0.1)
-
-num_epochs = 1000
-train_model(model, criterion, optimizer_ft, exp_lr_scheduler, num_epochs=num_epochs)
-
-
+    num_epochs = 1000
+    train_model(model, criterion, optimizer_ft, exp_lr_scheduler, num_epochs=num_epochs)
+    
