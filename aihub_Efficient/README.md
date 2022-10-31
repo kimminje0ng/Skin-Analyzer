@@ -9,16 +9,17 @@ aihub_Efficient
 |- EfficientNet.py
 |- work_dir
 |- train_data
-   |- test
-      |- dataset.jpg
-   |- train
-      |- alopecia_0
+   |- model6
+      |- test
          |- dataset.jpg
-      |- alopecia_1
-      |- ...
-   |- validation
-      |- alopecia_0
-      |- ...
+      |- train
+         |- alopecia_0
+            |- dataset.jpg
+         |- alopecia_1
+         |- ...
+      |- validation
+         |- alopecia_0
+         |- ...
 ```
 
 - 실행
