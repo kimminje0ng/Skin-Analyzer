@@ -1,6 +1,8 @@
+import sys
 import time
 import datetime
 import os
+import gc
 import copy
 import cv2
 import random
@@ -15,12 +17,14 @@ from torchvision import transforms, datasets
 from torch.utils.data import Dataset,DataLoader
 from torch.utils.tensorboard import SummaryWriter
 import matplotlib.pyplot as plt
-from PIL import Image
+from PIL import Image, ImageFile    # 수정
 from efficientnet_pytorch import EfficientNet
 
-device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-hyper_param_batch = 1   # Error: CUDA out of memory 
-# hyper_param_batch = 6
+ImageFile.LOAD_TRUNCATED_IMAGES = True  # 수정
+
+# 병렬으로 수정
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+hyper_param_batch = 7   # gpu 수만큼 할당
 
 random_seed = 100
 random.seed(random_seed)
@@ -31,34 +35,43 @@ model_name = 'efficientnet-b7'
 
 train_name = 'model6'
 
-PATH = './scalp_weights/'
+PATH = './work_dir/'    # output 저장
 
-data_train_path = './train_data/'+train_name+'/train'
-data_validation_path = './train_data/'+train_name+'/validation'
-data_test_path = './train_data/'+train_name+'/test'
+data_train_path = './'+train_name+'/train'
+data_validation_path = './'+train_name+'/validation'
+data_test_path = './'+train_name+'/test'
+
+#data_train_path ='./Number1/train'
+#data_validation_path = './Number1/test'
+#data_test_path = './Number1/test'
 
 image_size = EfficientNet.get_image_size(model_name)
 print(image_size)
 
 model = EfficientNet.from_pretrained(model_name, num_classes=num_classes)
+if torch.cuda.device_count() > 1:   # 병렬
+    model = nn.DataParallel(model)
 model = model.to(device)
-
+gc.collect()
+torch.cuda.empty_cache()
 def lambda_func(x):
     return x.rotate(90)
 
 transforms_train = transforms.Compose([
-                                        transforms.Resize([int(600), int(600)], interpolation=Image.BICUBIC),    # 수정
+                                        transforms.Resize([int(600), int(600)]),    # 수정
                                         transforms.RandomHorizontalFlip(p=0.5),
                                         transforms.RandomVerticalFlip(p=0.5),
                                         transforms.Lambda(lambda_func),    # 수정
                                         transforms.RandomRotation(10),
                                         transforms.RandomAffine(0, shear=10, scale=(0.8, 1.2)),
+                                       transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.2), #수정
                                         transforms.ToTensor(),
                                         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
                                     ])
 
 transforms_val = transforms.Compose([
                                         transforms.Resize([int(600), int(600)], interpolation=4),
+                                     transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.2), #수정
                                         transforms.ToTensor(),
                                         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
                                     ])
@@ -67,16 +80,18 @@ transforms_val = transforms.Compose([
 train_data_set = datasets.ImageFolder(data_train_path, transform=transforms_train)
 val_data_set = datasets.ImageFolder(data_validation_path, transform=transforms_val)
 
+
 dataloaders, batch_num = {}, {}
 
 dataloaders['train'] = DataLoader(train_data_set,
                                     batch_size=hyper_param_batch,
                                     shuffle=True,
-                                    num_workers=2)  # 수정
+                                    num_workers=4)  # 수정
 dataloaders['val'] = DataLoader(val_data_set,
                                     batch_size=hyper_param_batch,
                                     shuffle=False,
-                                    num_workers=2)  # 수정
+                                    num_workers=4)  # 수정
+
 
 batch_num['train'], batch_num['val'] = len(train_data_set), len(val_data_set)
 
@@ -99,11 +114,13 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
         print('-' * 10)
         
         epoch_start = time.time()
-
+        print("start\n")
         for phase in ['train', 'val']:
             if phase == 'train':
+                print("train working..\n") 
                 model.train()
             else:
+                print("eval working..\n")
                 model.eval()
 
             running_loss = 0.0
@@ -174,11 +191,15 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
     return model, best_idx, best_acc, train_loss, train_acc, val_loss, val_acc
 
 if __name__ == "__main__":
+    sys.stdout = open('/home/irteam/efficientNet/scalp_weights_parallel/log.txt', 'w')
+
     criterion = nn.CrossEntropyLoss()
 
     optimizer_ft = optim.Adam(model.parameters(),lr = 1e-4)
     exp_lr_scheduler = optim.lr_scheduler.StepLR(optimizer_ft, step_size=7, gamma=0.1)
 
-    num_epochs = 1000
+    num_epochs = 10
     train_model(model, criterion, optimizer_ft, exp_lr_scheduler, num_epochs=num_epochs)
-    
+
+    sys.stdout.close()
+
