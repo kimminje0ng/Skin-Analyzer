@@ -7,14 +7,14 @@ AI Hub의 [유형별 두피 이미지](https://www.aihub.or.kr/aihubdata/data/vi
 ```
 aihub_Efficient
 |- EfficientNet.py
-|- scalp_weights
+|- work_dir
 |- train_data
    |- model6
       |- test
+         |- dataset.jpg
       |- train
          |- alopecia_0
-            |- 0013_A2LEBJJDE00060O_1606550825417_3_TH.jpg
-            |- ...
+            |- dataset.jpg
          |- alopecia_1
          |- ...
       |- validation
@@ -26,3 +26,6 @@ aihub_Efficient
 ```
 python EfficientNet.py
 ```
+
+- 결과 저장</br>
+work_dir 디렉토리에 log.txt와 pt파일 저장됨
